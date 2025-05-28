@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Elecciones Primarias</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .tab-content > .tab-pane:not(.active) {
+      display: none;
+    }
+    .card img {
+      height: 150px;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body class="p-4">
+<div class="container">
+    <h1 class="text-center fw-bold mb-4">ELECCIONES PRIMARIAS</h1>
+  <ul class="nav nav-tabs" id="tabs">
+    <li class="nav-item">
+      <a class="nav-link active" data-bs-toggle="tab" href="#crearCuenta">Crear Cuenta</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#login">Iniciar Sesión</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#votar">Votar</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#estadisticas">Estadísticas</a>
+    </li>
+  </ul>
+  <div class="tab-content mt-3">
+    <!-- Crear Cuenta -->
+    <div class="tab-pane active" id="crearCuenta">
+      <form id="registroForm">
+        <input type="text" class="form-control mb-2" placeholder="CI (Carnet de Identidad)" id="ci" required>
+        <input type="text" class="form-control mb-2" placeholder="Nombre" id="nombre" required>
+        <input type="text" class="form-control mb-2" placeholder="Apellidos" id="apellidos" required>
+        <input type="email" class="form-control mb-2" placeholder="Correo" id="correo" required>
+        <input type="tel" class="form-control mb-2" placeholder="Teléfono" id="telefono" required>
+        <select class="form-select mb-2" id="departamento">
+          <option value="">Seleccione su departamento</option>
+          <option>La Paz</option><option>Cochabamba</option><option>Santa Cruz</option>
+          <option>Oruro</option><option>Potosí</option><option>Chuquisaca</option>
+          <option>Tarija</option><option>Beni</option><option>Pando</option>
+        </select>
+        <label for="fechaNacimiento">Fecha de Nacimiento (debe tener al menos 18 años)</label>
+        <input type="date" class="form-control mb-2" id="fechaNacimiento">
+        <label for="fechaVotacion">Fecha de Votación (debe ser la fecha actual)</label>
+        <input type="date" class="form-control mb-2" id="fechaVotacion">
+        <button type="button" class="btn btn-primary" onclick="guardarVotante()">Guardar</button>
+      </form>
+    </div>
+
+    <!-- Login -->
+    <div class="tab-pane" id="login">
+      <input type="text" class="form-control mb-2" placeholder="Usuario (Nombre)" id="loginNombre">
+      <input type="password" class="form-control mb-2" placeholder="Contraseña (CI)" id="loginCI">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="verPassword" onclick="mostrarContrasena()">
+        <label class="form-check-label">Ver contraseña</label>
+      </div>
+      <button class="btn btn-success" onclick="login()">Iniciar sesión</button>
+      <p class="mt-2 text-muted">¿Olvidaste tu contraseña? Usa tu CI real registrado.</p>
+    </div>
+
+    <!-- Votar -->
+    <div class="tab-pane" id="votar">
+      <div class="row" id="candidatosContainer"></div>
+      <button class="btn btn-primary mt-3" onclick="emitirVoto()">Votar</button>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="tab-pane" id="estadisticas">
+      <button class="btn btn-info mb-3" onclick="verEstadisticas()">Ver Estadísticas</button>
+      <canvas id="graficoEstadisticas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+  let votantes = JSON.parse(localStorage.getItem("votantes")) || [];
+  let usuarioActivo = JSON.parse(localStorage.getItem("usuarioActivo"));
+
+  const candidatos = [
+    { nombre: "Jorge Quiroga", foto: "img/foto1.jpg" },
+    { nombre: "Jhonny Fernandez", foto: "img/foto2.jpg" },
+    { nombre: "Eva Copa", foto: "img/foto3.jpg" },
+    { nombre: "Rodrigo Paz", foto: "img/foto4.jpg" },
+    { nombre: "Andronico Rodriguez", foto: "img/foto5.jpg" },
+    { nombre: "Jaime Dunn", foto: "img/foto6.jpg" },
+    { nombre: "Paulo Rodriguez", foto: "img/foto7.jpg" },
+    { nombre: "Eduardo del Castillo", foto: "img/foto8.jpg" },
+    { nombre: "Manfred Reyes", foto: "img/foto9.jpg" },
+    { nombre: "Samuel Doria", foto: "img/foto10.jpg" }
+  ];
+
+  function guardarVotante() {
+    if (votantes.length >= 10) return alert("Máximo 10 votantes.");
+    const fn = new Date(fechaNacimiento.value);
+    const hoy = new Date();
+    const edad = hoy.getFullYear() - fn.getFullYear();
+    if (edad < 18) return alert("Debes tener al menos 18 años para votar.");
+
+    const fechaVotacionInput = document.getElementById("fechaVotacion").value;
+    const fechaHoy = new Date().toISOString().split("T")[0]; // formato YYYY-MM-DD
+    if (fechaVotacionInput !== fechaHoy) {
+      return alert("La fecha de votación debe ser la de hoy.");
+    }
+
+    const nuevo = {
+      ci: ci.value, nombre: nombre.value, apellidos: apellidos.value, correo: correo.value,
+      telefono: telefono.value, departamento: departamento.value,
+      fechaNacimiento: fechaNacimiento.value, fechaVotacion: fechaVotacion.value, voto: null
+    };
+    votantes.push(nuevo);
+    localStorage.setItem("votantes", JSON.stringify(votantes));
+    alert("Registrado con éxito.");
+    document.getElementById("registroForm").reset();
+  }
+
+  function login() {
+    const nombre = loginNombre.value;
+    const ci = loginCI.value;
+    const usuario = votantes.find(v => v.nombre === nombre && v.ci === ci);
+    if (!usuario) return alert("Datos incorrectos.");
+    localStorage.setItem("usuarioActivo", JSON.stringify(usuario));
+    alert("Login exitoso.");
+    location.reload();
+  }
+
+  function mostrarContrasena() {
+    const pass = document.getElementById("loginCI");
+    pass.type = pass.type === "password" ? "text" : "password";
+  }
+
+  function generarCandidatos() {
+    const container = document.getElementById("candidatosContainer");
+    container.innerHTML = "";
+    candidatos.forEach(c => {
+      container.innerHTML += `
+        <div class="col-md-4 mb-3">
+          <div class="card">
+            <img src="${c.foto}" class="card-img-top" alt="${c.nombre}">
+            <div class="card-body">
+              <h5 class="card-title">${c.nombre}</h5>
+              <input type="radio" name="candidato" value="${c.nombre}" class="form-check-input">
+            </div>
+          </div>
+        </div>`;
+    });
+  }
+
+  function emitirVoto() {
+    const elegido = document.querySelector('input[name="candidato"]:checked');
+    if (!usuarioActivo) return alert("Debe iniciar sesión.");
+    if (!elegido) return alert("Seleccione un candidato.");
+    let votantes = JSON.parse(localStorage.getItem("votantes"));
+    let idx = votantes.findIndex(v => v.ci === usuarioActivo.ci);
+    if (votantes[idx].voto) return alert("Ya votó.");
+    votantes[idx].voto = elegido.value;
+    localStorage.setItem("votantes", JSON.stringify(votantes));
+    alert("Voto registrado con éxito.");
+  }
+
+  function verEstadisticas() {
+    const votantes = JSON.parse(localStorage.getItem("votantes")) || [];
+    const conteo = {};
+    votantes.forEach(v => {
+      if (v.voto) conteo[v.voto] = (conteo[v.voto] || 0) + 1;
+    });
+    const ctx = document.getElementById("graficoEstadisticas").getContext("2d");
+    const labels = Object.keys(conteo);
+    const data = Object.values(conteo);
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Votos",
+          data: data,
+          backgroundColor: "rgba(54, 162, 235, 0.6)",
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    generarCandidatos();
+    const votarTab = document.querySelector('a[href="#votar"]');
+    votarTab.addEventListener("click", e => {
+      if (!localStorage.getItem("usuarioActivo")) {
+        alert("Debe iniciar sesión para votar.");
+        e.preventDefault();
+      }
+    });
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
